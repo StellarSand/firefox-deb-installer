@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+# Copyright (C) 2026-present StellarSand
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+has_command() {
+  if ! (command -v "$1" > /dev/null)
+  then
+    if [ "$1" = "apt" ]
+    then
+      echo -e "\nNot a Debian-based distro. The script can't run on this distro.\n"
+    else
+      echo -e "\n$1 package does not exist. Please install it first and try again.\n"
+    fi
+    exit 1
+  fi
+}
+
+has_command "apt"
+has_command "wget"
+has_command "tee"
+has_command "gpg"
+has_command "awk"
+has_command "grep"
+
+keyrings_dir="/etc/apt/keyrings"
+asc_file="packages.mozilla.org.asc"
+expected_fingerprint="35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3"
+
+echo -e "\n[+] Checking keyrings directory ..."
+if [ ! -d "$keyrings_dir" ]
+then
+  sudo mkdir -p "$keyrings_dir" && sudo chmod 0755 "$keyrings_dir"
+fi
+
+echo -e "\n[+] Importing Mozilla APT repository signing key ..."
+wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | sudo tee /tmp/$asc_file > /dev/null
+
+echo -e "\n[+] Verifying signing key fingerprint ..."
+fingerprint=$(gpg -n -q --import --import-options import-show /tmp/$asc_file | awk '/pub/{getline; gsub(/^ +| +$/,""); print $0}')
+if [ "$fingerprint" = "$expected_fingerprint" ]
+then
+    echo "The key fingerprint matches."
+    sudo mv /tmp/$asc_file "$keyrings_dir"
+else
+    echo -e "[!] Verification failed: the fingerprint ($fingerprint) does not match the expected one ($expected_fingerprint).\n"
+    exit 1
+fi
+
+echo -e "\n[+] Adding Mozilla APT repository to sources.list ..."
+sudo tee /etc/apt/sources.list.d/mozilla.sources > /dev/null <<EOF
+Types: deb
+URIs: https://packages.mozilla.org/apt
+Suites: mozilla
+Components: main
+Signed-By: ${keyrings_dir}/${asc_file}
+EOF
+
+echo -e "\n[+] Configuring APT to prioritize packages from Mozilla repository ..."
+sudo tee /etc/apt/preferences.d/mozilla > /dev/null <<EOF
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+EOF
+
+# Firefox in the Ubuntu APT repo reinstalls Firefox as Snap package
+# Prevent that from happening:
+if grep -qi "ubuntu" /etc/os-release
+then
+  sudo tee -a /etc/apt/preferences.d/mozilla > /dev/null <<EOF
+
+Package: firefox*
+Pin: release o=Ubuntu
+Pin-Priority: -1
+EOF
+fi
+
+echo -e "\n[+] Installing Firefox ..."
+sudo apt update && sudo apt install firefox -y
+
+exit 0
