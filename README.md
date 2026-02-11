@@ -3,7 +3,7 @@
 Bash script to automate the installation of the official Firefox `.deb` package for Debian-based distributions, as documented by Mozilla [here](https://support.mozilla.org/en-US/kb/install-firefox-linux#w_install-firefox-deb-package-for-debian-based-distributions-recommended).
 
 **Why use this instead of installing Firefox via the APT repo, Flatpak, or Snap?**
-<br>On some Debian-based distros (like Kali Linux), the APT repo only provides Firefox ESR by default. On Ubuntu, Firefox is installed as a Snap package by default, but some users may prefer to install it from the APT repo. However, the Firefox package in the Ubuntu APT repo reinstalls Firefox as a Snap package.
+<br>On some Debian-based distros (like Kali Linux), the APT repo only provides Firefox ESR by default. On Ubuntu, Firefox is installed as a Snap package by default and the package in the Ubuntu APT repo reinstalls it as a Snap.
 <br>Using this script you can install & update to the latest non‑ESR Firefox directly from the APT repo.
 
 ## Contents
